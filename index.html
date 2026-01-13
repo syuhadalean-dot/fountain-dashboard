@@ -1,98 +1,91 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Fountain Dashboard - IIUM Gombak</title>
-
-  <!-- Leaflet Map -->
+  <title>IIUM Gombak Fountain Dashboard</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-    }
-    #map {
-      height: 300px;
-      margin-bottom: 30px;
-    }
+    body { font-family: Arial; margin: 20px; }
+    #map { height: 300px; margin-bottom: 30px; }
   </style>
 </head>
 <body>
 
-  <h2>Smart Fountain Monitoring Dashboard - IIUM Gombak</h2>
+<h2>IIUM Gombak Fountain Dashboard</h2>
 
-  <div id="map"></div>
-  <canvas id="levelChart"></canvas>
+<div id="map"></div>
+<canvas id="levelChart"></canvas>
 
-  <script>
-    // IIUM Gombak Coordinates
-    const lat = 3.2470;
-    const lng = 101.7432;
+<script>
+  // IIUM Gombak coordinates
+  const lat = 3.2470;
+  const lng = 101.7432;
 
-    // Your ThingSpeak Channel ID
-    const CHANNEL_ID = "3226119"; // 🔴 Replace with your real channel ID
+  const map = L.map('map').setView([lat, lng], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-    // Initialize map
-    const map = L.map('map').setView([lat, lng], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+  const marker = L.marker([lat, lng]).addTo(map)
+    .bindPopup('IIUM Gombak Fountain<br>Water Level: Loading...')
+    .openPopup();
 
-    // Marker for fountain
-    const marker = L.marker([lat, lng]).addTo(map)
-      .bindPopup('IIUM Gombak Fountain<br>Water Level: Loading...')
-      .openPopup();
+  const ctx = document.getElementById('levelChart').getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Water Level (cm)', data: [], borderWidth: 2, fill: false }] },
+    options: { responsive: true, scales: { x: { display: false }, y: { beginAtZero: true } } }
+  });
 
-    // Chart initialization
-    const ctx = document.getElementById('levelChart').getContext('2d');
-    const chart = new Chart(ctx, {
-      type: 'line',
-      data: { labels: [], datasets: [{ label: 'Water Level (cm)', data: [], borderWidth: 2, fill: false }] },
-      options: {
-        responsive: true,
-        scales: {
-          x: { display: false },
-          y: { beginAtZero: true }
-        }
-      }
-    });
+  // 🔴 CHANGE THESE
+  const CHANNEL_ID = "3226119";
+  const BOT_TOKEN = "8458020155:AAGxKYkkBCW6A7AYBvjd23qqBJGExNzX1Gc";
+  const CHAT_ID = "1003491490979";
+  const OVERFLOW_THRESHOLD = 80;
 
-    // Function to fetch data and update dashboard
-    function updateDashboard() {
-      fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1.json?results=10`)
-        .then(response => response.json())
-        .then(data => {
-          const labels = [];
-          const levels = [];
-          data.feeds.forEach(feed => {
-            labels.push(feed.created_at);
-            levels.push(feed.field1);
-          });
+  // Flag to avoid repeated alerts
+  let alertSent = false;
 
-          // Update chart
-          chart.data.labels = labels;
-          chart.data.datasets[0].data = levels;
-          chart.update();
-
-          // Update marker popup with latest value
-          const latest = levels[levels.length - 1];
-          marker.setPopupContent(`IIUM Gombak Fountain<br>Water Level: ${latest} cm`);
-        })
-        .catch(error => {
-          console.error("Error fetching ThingSpeak data:", error);
+  function updateDashboard() {
+    fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1.json?results=10`)
+      .then(response => response.json())
+      .then(data => {
+        const labels = [];
+        const levels = [];
+        data.feeds.forEach(feed => {
+          labels.push(feed.created_at);
+          levels.push(feed.field1);
         });
-    }
 
-    // Initial update
-    updateDashboard();
+        // Update chart
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = levels;
+        chart.update();
 
-    // Auto-refresh every 60 seconds (60000 ms)
-    setInterval(updateDashboard, 60000);
+        // Latest value
+        const latest = parseFloat(levels[levels.length - 1]);
+        marker.setPopupContent(`IIUM Gombak Fountain<br>Water Level: ${latest} cm`);
 
-  </script>
+        // Telegram alert
+        if (latest > OVERFLOW_THRESHOLD && !alertSent) {
+          alertSent = true;
+          fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=Overflow! Fix ASAP`)
+            .then(() => console.log("Telegram alert sent"))
+            .catch(err => console.error("Telegram alert error:", err));
+        }
+
+        if (latest <= OVERFLOW_THRESHOLD) {
+          alertSent = false; // Reset flag
+        }
+
+      })
+      .catch(err => console.error("Error fetching ThingSpeak data:", err));
+  }
+
+  updateDashboard();             // Initial fetch
+  setInterval(updateDashboard, 60000); // Auto-refresh every 60s
+
+</script>
 </body>
 </html>
