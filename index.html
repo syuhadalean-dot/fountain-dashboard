@@ -30,22 +30,22 @@
   <canvas id="levelChart"></canvas>
 
   <script>
-    // Fountain location (KL example)
-    const lat = 3.1390;
-    const lng = 101.6869;
+    // Fountain location (IIUM Gombak)
+    const lat = 3.2470;
+    const lng = 101.7432;
 
-    const map = L.map('map').setView([lat, lng], 13);
+    const map = L.map('map').setView([lat, lng], 15); // Zoom a bit closer
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
     const marker = L.marker([lat, lng]).addTo(map)
-      .bindPopup('Fountain Location<br>Water Level: Loading...')
+      .bindPopup('IIUM Gombak Fountain<br>Water Level: Loading...')
       .openPopup();
 
     // 🔴 CHANGE THIS
-    const CHANNEL_ID = "YOUR_CHANNEL_ID";
+    const CHANNEL_ID = "3226119";
 
     fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1.json?results=10`)
       .then(response => response.json())
@@ -59,7 +59,7 @@
         });
 
         const latest = levels[levels.length - 1];
-        marker.setPopupContent(`Fountain Location<br>Water Level: ${latest} cm`);
+        marker.setPopupContent(`IIUM Gombak Fountain<br>Water Level: ${latest} cm`);
 
         new Chart(document.getElementById('levelChart'), {
           type: 'line',
