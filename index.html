@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smart Fountain Dashboard</title>
+
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    #map {
+      height: 300px;
+      margin-bottom: 30px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Smart Fountain Monitoring Dashboard</h2>
+
+  <div id="map"></div>
+  <canvas id="levelChart"></canvas>
+
+  <script>
+    // Fountain location (KL example)
+    const lat = 3.1390;
+    const lng = 101.6869;
+
+    const map = L.map('map').setView([lat, lng], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const marker = L.marker([lat, lng]).addTo(map)
+      .bindPopup('Fountain Location<br>Water Level: Loading...')
+      .openPopup();
+
+    // 🔴 CHANGE THIS
+    const CHANNEL_ID = "YOUR_CHANNEL_ID";
+
+    fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1.json?results=10`)
+      .then(response => response.json())
+      .then(data => {
+        const labels = [];
+        const levels = [];
+
+        data.feeds.forEach(feed => {
+          labels.push(feed.created_at);
+          levels.push(feed.field1);
+        });
+
+        const latest = levels[levels.length - 1];
+        marker.setPopupContent(`Fountain Location<br>Water Level: ${latest} cm`);
+
+        new Chart(document.getElementById('levelChart'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Water Level (cm)',
+              data: levels,
+              borderWidth: 2,
+              fill: false
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { display: false },
+              y: { beginAtZero: true }
+            }
+          }
+        });
+      });
+  </script>
+
+</body>
+</html>
