@@ -1,17 +1,15 @@
+
 <!DOCTYPE html>
 <html>
 <head>
   <title>IIUM Gombak Fountain Dashboard</title>
 
-  <!-- Leaflet Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
+    body { font-family: Arial; margin: 20px; }
     #map { height: 300px; margin-bottom: 30px; }
   </style>
 </head>
@@ -24,85 +22,49 @@
 <canvas id="levelChart"></canvas>
 
 <script>
-  // IIUM Gombak Coordinates
   const lat = 3.2470;
   const lng = 101.7432;
+  const CHANNEL_ID = 3226119; // ✅ MUST be correct
 
-  // Your ThingSpeak Channel & Telegram settings
-  const CHANNEL_ID = 3226119; // 🔴 Replace
-  const BOT_TOKEN = 8458020155:AAGxKYkkBCW6A7AYBvjd23qqBJGExNzX1Gc;   // 🔴 Replace
-  const CHAT_ID = 1003491490979;       // 🔴 Replace
-  const OVERFLOW_THRESHOLD = 5;        // 🔴 Replace with your threshold in cm
-
-  // Alert flag to prevent repeated Telegram messages
-  let alertSent = false;
-
-  // Initialize map
   const map = L.map('map').setView([lat, lng], 15);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
   const marker = L.marker([lat, lng]).addTo(map)
-    .bindPopup('IIUM Gombak Fountain<br>Water Level: Loading...')
+    .bindPopup("Water Level: Loading...")
     .openPopup();
 
-  // Initialize chart
-  const ctx = document.getElementById('levelChart').getContext('2d');
-  const chart = new Chart(ctx, {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: 'Water Level (cm)', data: [], borderWidth: 2, fill: false }] },
-    options: {
-      responsive: true,
-      scales: { x: { display: false }, y: { beginAtZero: true } }
-    }
+  const chart = new Chart(document.getElementById("levelChart"), {
+    type: "line",
+    data: { labels: [], datasets: [{ label: "Water Level (cm)", data: [] }] },
+    options: { responsive: true }
   });
 
-  // Function to fetch ThingSpeak data and update dashboard
   function updateDashboard() {
     fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1.json?results=10`)
-      .then(response => response.json())
+      .then(r => r.json())
       .then(data => {
         const labels = [];
         const levels = [];
 
-        data.feeds.forEach(feed => {
-          labels.push(feed.created_at);
-          levels.push(feed.field1 ? parseFloat(feed.field1) : 0); // safe conversion
+        data.feeds.forEach(f => {
+          if (f.field1 !== null) {
+            labels.push(f.created_at);
+            levels.push(Number(f.field1));
+          }
         });
 
-        // Update chart
         chart.data.labels = labels;
         chart.data.datasets[0].data = levels;
         chart.update();
 
-        // Update marker popup
         const latest = levels[levels.length - 1];
-        marker.setPopupContent(`IIUM Gombak Fountain<br>Water Level: ${latest} cm`);
-
-        // Send Telegram alert if overflow
-        if (!isNaN(latest)) {
-          if (latest > OVERFLOW_THRESHOLD && !alertSent) {
-            alertSent = true;
-            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=Overflow! Fix ASAP`)
-              .then(() => console.log("Telegram alert sent"))
-              .catch(err => console.error("Telegram alert error:", err));
-          }
-          if (latest <= OVERFLOW_THRESHOLD) {
-            alertSent = false; // reset alert flag
-          }
-        }
+        marker.setPopupContent(`Water Level: ${latest} cm`);
       })
-      .catch(err => console.error("Error fetching ThingSpeak data:", err));
+      .catch(err => console.error("ThingSpeak error:", err));
   }
 
-  // Initial load
   updateDashboard();
-
-  // Auto-refresh every 60 seconds
   setInterval(updateDashboard, 60000);
-
 </script>
-</body>
-</html>
 
+</body
