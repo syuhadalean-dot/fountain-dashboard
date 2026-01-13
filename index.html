@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Fountain Dashboard</title>
+  <title>Smart Fountain Dashboard - IIUM Gombak</title>
 
   <!-- Leaflet Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -21,67 +21,78 @@
     }
   </style>
 </head>
-
 <body>
 
-  <h2>Smart Fountain Monitoring Dashboard</h2>
+  <h2>Smart Fountain Monitoring Dashboard - IIUM Gombak</h2>
 
   <div id="map"></div>
   <canvas id="levelChart"></canvas>
 
   <script>
-    // Fountain location (IIUM Gombak)
+    // IIUM Gombak Coordinates
     const lat = 3.2470;
     const lng = 101.7432;
 
-    const map = L.map('map').setView([lat, lng], 15); // Zoom a bit closer
+    // Your ThingSpeak Channel ID
+    const CHANNEL_ID = "3226119"; // 🔴 Replace with your real channel ID
 
+    // Initialize map
+    const map = L.map('map').setView([lat, lng], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
+    // Marker for fountain
     const marker = L.marker([lat, lng]).addTo(map)
       .bindPopup('IIUM Gombak Fountain<br>Water Level: Loading...')
       .openPopup();
 
-    // 🔴 CHANGE THIS
-    const CHANNEL_ID = "3226119";
+    // Chart initialization
+    const ctx = document.getElementById('levelChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: [], datasets: [{ label: 'Water Level (cm)', data: [], borderWidth: 2, fill: false }] },
+      options: {
+        responsive: true,
+        scales: {
+          x: { display: false },
+          y: { beginAtZero: true }
+        }
+      }
+    });
 
-    fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1.json?results=10`)
-      .then(response => response.json())
-      .then(data => {
-        const labels = [];
-        const levels = [];
+    // Function to fetch data and update dashboard
+    function updateDashboard() {
+      fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1.json?results=10`)
+        .then(response => response.json())
+        .then(data => {
+          const labels = [];
+          const levels = [];
+          data.feeds.forEach(feed => {
+            labels.push(feed.created_at);
+            levels.push(feed.field1);
+          });
 
-        data.feeds.forEach(feed => {
-          labels.push(feed.created_at);
-          levels.push(feed.field1);
+          // Update chart
+          chart.data.labels = labels;
+          chart.data.datasets[0].data = levels;
+          chart.update();
+
+          // Update marker popup with latest value
+          const latest = levels[levels.length - 1];
+          marker.setPopupContent(`IIUM Gombak Fountain<br>Water Level: ${latest} cm`);
+        })
+        .catch(error => {
+          console.error("Error fetching ThingSpeak data:", error);
         });
+    }
 
-        const latest = levels[levels.length - 1];
-        marker.setPopupContent(`IIUM Gombak Fountain<br>Water Level: ${latest} cm`);
+    // Initial update
+    updateDashboard();
 
-        new Chart(document.getElementById('levelChart'), {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: 'Water Level (cm)',
-              data: levels,
-              borderWidth: 2,
-              fill: false
-            }]
-          },
-          options: {
-            responsive: true,
-            scales: {
-              x: { display: false },
-              y: { beginAtZero: true }
-            }
-          }
-        });
-      });
+    // Auto-refresh every 60 seconds (60000 ms)
+    setInterval(updateDashboard, 60000);
+
   </script>
-
 </body>
 </html>
